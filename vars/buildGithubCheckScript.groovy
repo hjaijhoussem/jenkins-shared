@@ -170,24 +170,31 @@ def buildGithubCheck(repository, commitID, privateKey, status, checkName) {
     def currentTime = new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'")
     def checkNameRunId
 
+    // Generate JWT and validate authentication
     def jsonWebToken = getJsonWebToken(privateKey)
-    def getStatusCode = validateAuth(jsonWebToken)
-    if (!(getStatusCode in [200, 201])) {
-        error "Authentication request failed, status code: ${getStatusCode}"
+    def authStatusCode = validateAuth(jsonWebToken) // Renamed variable
+    if (!(authStatusCode in [200, 201])) {
+        error "Authentication request failed, status code: ${authStatusCode}"
     }
 
+    // Get GitHub token
     def token = getToken(jsonWebToken)
 
+    // Get the previous check run ID (if it exists)
     try {
         checkNameRunId = getPreviousCheckNameRunID(repository, commitID, token, checkName)
     } catch (Exception e) {
         echo "Check name does not exist: ${e.message}"
     }
 
+    // Determine the request method (PATCH or POST)
     def requestMethod = checkNameRunId ? "PATCH" : "POST"
-    def getStatusCode = setCheckName(repository, checkName, status, currentTime, requestMethod, commitID, checkNameRunId)
 
-    if (!(getStatusCode in [200, 201])) {
-        error "Failed to create a check run, status code: ${getStatusCode}"
+    // Set the check run status
+    def checkRunStatusCode = setCheckName(repository, checkName, status, currentTime, requestMethod, commitID, checkNameRunId) // Renamed variable
+
+    // Check if the check run was successfully created/updated
+    if (!(checkRunStatusCode in [200, 201])) {
+        error "Failed to create a check run, status code: ${checkRunStatusCode}"
     }
 }
