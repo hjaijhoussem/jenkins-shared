@@ -1,20 +1,10 @@
 @Grab(group='io.jsonwebtoken', module='jjwt', version='0.4')
-import sun.net.www.protocol.https.HttpsURLConnectionImpl
 import java.text.SimpleDateFormat
-import java.lang.reflect.*
 import java.util.*
 import java.nio.charset.StandardCharsets
-import java.io.*
-import javax.crypto.KeyGenerator
-import java.security.*
-import groovy.json.*
-import io.jsonwebtoken.*
-import java.security.interfaces.RSAPrivateKey
-import java.security.spec.*
-import static io.jsonwebtoken.SignatureAlgorithm.RS256
-import java.util.Base64.Decoder
-import org.apache.commons.codec.binary.Base64
-import org.codehaus.groovy.runtime.GStringImpl
+import groovy.json.JsonSlurper
+import groovy.json.JsonBuilder
+import java.net.HttpURLConnection
 
 // APP_ID = <APP_ID>
 // INSTALLATION_ID = <INSTALLATION_ID>
@@ -32,104 +22,100 @@ def initializeGlobals(appId, installationId, organizationName) {
         ORGANIZATION_NAME: organizationName
     ]
 }
-
-// Custom HTTP request method
-def setRequestMethod( HttpURLConnection c,  String requestMethod) {
+// Fetch the previous check run ID
+def getPreviousCheckNameRunID(repository, commitID, token, checkName) {
     try {
-        final Object target;
-        if (c instanceof HttpsURLConnectionImpl) {
-            final Field delegate = HttpsURLConnectionImpl.class.getDeclaredField("delegate");
-            delegate.setAccessible(true);
-            target = delegate.get(c);
-        } else {
-            target = c;
-        }
-        final Field f = HttpURLConnection.class.getDeclaredField("method");
-        f.setAccessible(true);
-        f.set(target, requestMethod);
-    } catch (IllegalAccessException | NoSuchFieldException ex) {
-        throw new AssertionError(ex);
+        def url = "https://api.github.com/repos/${ORGANIZATION_NAME}/${repository}/commits/${commitID}/check-runs"
+        def httpConn = new URL(url).openConnection() as HttpURLConnection
+        httpConn.requestMethod = "GET"
+        httpConn.setRequestProperty("Authorization", "token ${token}")
+        httpConn.setRequestProperty("Accept", "application/vnd.github.antiope-preview+json")
+        
+        def responseText = httpConn.inputStream.text
+        def slurper = new JsonSlurper()
+        def resultMap = slurper.parseText(responseText)
+        def checkRunId = resultMap.check_runs.find { it.name == checkName }?.id
+        httpConn.disconnect()
+        
+        return checkRunId
+    } catch (Exception e) {
+        error "Failed to retrieve the check ID: ${e.message}"
     }
 }
 
-def getPreviousCheckNameRunID(repository, commitID, token, checkName) {
+// Create or update a check run
+def setCheckName(repository, checkName, status, previousDay, requestMethod, commitID = null, check_run_id = null) {
     try {
-        def httpConn = new URL("https://api.github.com/repos/${ORGANIZATION_NAME}/${repository}/commits/${commitID}/check-runs").openConnection();
-        httpConn.setDoOutput(true)
-        httpConn.setRequestProperty( 'Authorization', "token ${token}" )
-        httpConn.setRequestProperty( 'Accept', 'application/vnd.github.antiope-preview+json' )
-        checkRuns = httpConn.getInputStream().getText();
-        def slurperCheckRun = new JsonSlurper()
-        def resultMapCheckRun = slurperCheckRun.parseText(checkRuns)
-        def check_run_id = resultMapCheckRun.check_runs
-                      .find { it.name == checkName }
-                      .id
-        return check_run_id
-    } catch(Exception e){
-        error 'Failed to retrieve the check id'
-    }           
-}
-
-def setCheckName(repository, checkName, status, previousDay, requestMethod, commitID=null, check_run_id=null) {
-    try {
-        def jsonCheckRun = new groovy.json.JsonBuilder()
-        updateCheckRun = ["name":"${checkName}", "status": "in_progress", "conclusion":"${status}", "completed_at": "${previousDay}"]
+        def jsonBuilder = new JsonBuilder()
+        def updateCheckRun = [
+            name: checkName,
+            status: "in_progress",
+            conclusion: status,
+            completed_at: previousDay
+        ]
+        
         def url = "https://api.github.com/repos/${ORGANIZATION_NAME}/${repository}/check-runs"
-
         if (requestMethod == "POST") {
-            updateCheckRun["head_sha"] = "${commitID}"
-        } else {
+            updateCheckRun["head_sha"] = commitID
+        } else if (check_run_id) {
             url += "/${check_run_id}"
         }
 
-        // Cast map to json
-        jsonCheckRun updateCheckRun
+        jsonBuilder(updateCheckRun)
+        def payload = jsonBuilder.toString()
 
-        def httpConn = new URL(url).openConnection();
-        setRequestMethod(httpConn, requestMethod);
-        httpConn.setDoOutput(true)
-        httpConn.setRequestProperty( 'Authorization', "token ${token}" )
-        httpConn.setRequestProperty( 'Accept', 'application/vnd.github.antiope-preview+json' )
-        httpConn.getOutputStream().write(jsonCheckRun.toString().getBytes("UTF-8"));
-        return httpConn.getResponseCode();
-    } catch(Exception e){
-        echo "Exception: ${e}"
-        error "Failed to create a check run"
-    }   
+        def httpConn = new URL(url).openConnection() as HttpURLConnection
+        httpConn.requestMethod = requestMethod
+        httpConn.doOutput = true
+        httpConn.setRequestProperty("Authorization", "token ${token}")
+        httpConn.setRequestProperty("Accept", "application/vnd.github.antiope-preview+json")
+        httpConn.setRequestProperty("Content-Type", "application/json")
+        
+        httpConn.outputStream.withWriter("UTF-8") { it.write(payload) }
+        def responseCode = httpConn.responseCode
+        httpConn.disconnect()
+        
+        return responseCode
+    } catch (Exception e) {
+        echo "Exception: ${e.message}"
+        error "Failed to create/update check run"
+    }
 }
 
+// Get current and expiration times
 def accessTime() {
     try {
-        Date date = new Date();
-        long t = date.getTime();
-        Date expirationTime = new Date(t + 50000l);
-        Date iat = new Date(System.currentTimeMillis() + 1000)
-        return ["iat": iat, "expirationTime": expirationTime]
-    } catch(Exception e){
-        echo "Exception: ${e}"
-        error "Generated current time failed"
-    }    
+        def now = new Date()
+        def expirationTime = new Date(now.time + 50000)
+        def iat = new Date(System.currentTimeMillis() + 1000)
+        return [iat: iat, expirationTime: expirationTime]
+    } catch (Exception e) {
+        echo "Exception: ${e.message}"
+        error "Failed to generate current time"
+    }
 }
 
+// Main function to build GitHub check
 def buildGithubCheck(repository, commitID, accToken, status, checkName) {
     def currentTime = new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'")
-    def checkName_run_id
-
+    def checkNameRunId
     token = accToken
-  
+
     try {
-        checkName_run_id = getPreviousCheckNameRunID(repository, commitID, token, checkName)
-    } catch(Exception e) {
-        echo "Exception: ${e}"
+        checkNameRunId = getPreviousCheckNameRunID(repository, commitID, token, checkName)
+    } catch (Exception e) {
+        echo "Exception: ${e.message}"
         echo "Check name does not exist"
     }
 
-    if (checkName_run_id) {
-        getStatusCode = setCheckName(repository, checkName, status, currentTime, "PATCH", commitID, checkName_run_id)
+    def getStatusCode
+    if (checkNameRunId) {
+        getStatusCode = setCheckName(repository, checkName, status, currentTime, "PATCH", commitID, checkNameRunId)
     } else {
-        getStatusCode = setCheckName(repository, checkName, status, previousDay, "POST", commitID)
+        getStatusCode = setCheckName(repository, checkName, status, currentTime, "POST", commitID)
     }
-    if (!(getStatusCode in [200,201])) {
-        error "Failed to create a check run, status code: ${getStatusCode}"
+
+    if (!(getStatusCode in [200, 201])) {
+        error "Failed to create/update check run, status code: ${getStatusCode}"
     }
 }
