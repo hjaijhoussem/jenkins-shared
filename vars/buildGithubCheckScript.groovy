@@ -5,12 +5,10 @@ import java.nio.charset.StandardCharsets
 import groovy.json.JsonSlurper
 import groovy.json.JsonBuilder
 import java.net.HttpURLConnection
-
 def call() {
     return this
 }
 
-// Function to initialize and return global variables
 def initializeGlobals(appId, installationId, organizationName) {
     return [
         APP_ID: appId,
@@ -19,7 +17,6 @@ def initializeGlobals(appId, installationId, organizationName) {
     ]
 }
 
-// Fetch the previous check run ID
 def getPreviousCheckNameRunID(repository, commitID, token, checkName, globals) {
     echo "executing getPreviousCheckNameRunID function"
     echo "ORGANIZATION_NAME: ${globals.ORGANIZATION_NAME}, INSTALLATION_ID: ${globals.INSTALLATION_ID}, APP_ID: ${globals.APP_ID}"
@@ -42,7 +39,6 @@ def getPreviousCheckNameRunID(repository, commitID, token, checkName, globals) {
     }
 }
 
-// Create or update a check run
 def setCheckName(repository, checkName, status, previousDay, requestMethod, accToken, commitID = null, check_run_id = null, globals) {
     echo "executing setCheckName function"
     try {
@@ -74,8 +70,9 @@ def setCheckName(repository, checkName, status, previousDay, requestMethod, accT
         
         httpConn.outputStream.withWriter("UTF-8") { it.write(payload) }
         def responseCode = httpConn.responseCode
+        def responseText = httpConn.inputStream.text
         httpConn.disconnect()
-        echo "setCheckName completed successfully, responseCode = ${responseCode}"
+        echo "setCheckName completed successfully, responseCode = ${responseCode}, responseText = ${responseText}"
         return responseCode
     } catch (Exception e) {
         echo "Exception: ${e.message}"
@@ -83,7 +80,6 @@ def setCheckName(repository, checkName, status, previousDay, requestMethod, accT
     }
 }
 
-// Get current and expiration times
 def accessTime() {
     echo "executing accessTime function"
     try {
@@ -98,7 +94,6 @@ def accessTime() {
     }
 }
 
-// Main function to build GitHub check
 def buildGithubCheck(repository, commitID, accToken, status, checkName, globals) {
     def currentTime = new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'")
     def checkNameRunId
