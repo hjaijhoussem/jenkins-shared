@@ -22,9 +22,11 @@ def initializeGlobals(appId, installationId, organizationName) {
         ORGANIZATION_NAME: organizationName
     ]
 }
+
 // Fetch the previous check run ID
 def getPreviousCheckNameRunID(repository, commitID, token, checkName) {
     echo "executing getPreviousCheckNameRunID function"
+    echo "ORGANIZATION_NAME: ${ORGANIZATION_NAME}, INSTALLATION_ID: ${INSTALLATION_ID}, APP_ID: ${APP_ID}"
     try {
         def url = "https://api.github.com/repos/${ORGANIZATION_NAME}/${repository}/commits/${commitID}/check-runs"
         def httpConn = new URL(url).openConnection() as HttpURLConnection
