@@ -44,7 +44,7 @@ def getPreviousCheckNameRunID(repository, commitID, token, checkName) {
 }
 
 // Create or update a check run
-def setCheckName(repository, checkName, status, previousDay, requestMethod, commitID = null, check_run_id = null) {
+def setCheckName(repository, checkName, status, previousDay, requestMethod, accToken, commitID = null, check_run_id = null) {
     try {
         def jsonBuilder = new JsonBuilder()
         def updateCheckRun = [
@@ -67,7 +67,7 @@ def setCheckName(repository, checkName, status, previousDay, requestMethod, comm
         def httpConn = new URL(url).openConnection() as HttpURLConnection
         httpConn.requestMethod = requestMethod
         httpConn.doOutput = true
-        httpConn.setRequestProperty("Authorization", "token ${token}")
+        httpConn.setRequestProperty("Authorization", "token ${accToken}")
         httpConn.setRequestProperty("Accept", "application/vnd.github.antiope-preview+json")
         httpConn.setRequestProperty("Content-Type", "application/json")
         
@@ -110,9 +110,9 @@ def buildGithubCheck(repository, commitID, accToken, status, checkName) {
 
     def getStatusCode
     if (checkNameRunId) {
-        getStatusCode = setCheckName(repository, checkName, status, currentTime, "PATCH", commitID, checkNameRunId)
+        getStatusCode = setCheckName(repository, checkName, status, currentTime, "PATCH", accToken, commitID, checkNameRunId)
     } else {
-        getStatusCode = setCheckName(repository, checkName, status, currentTime, "POST", commitID)
+        getStatusCode = setCheckName(repository, checkName, status, currentTime, "POST", accToken, commitID)
     }
 
     if (!(getStatusCode in [200, 201])) {
