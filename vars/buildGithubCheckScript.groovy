@@ -1,3 +1,11 @@
+@Grab(group='io.jsonwebtoken', module='jjwt', version='0.4')
+import java.text.SimpleDateFormat
+import java.util.*
+import java.nio.charset.StandardCharsets
+import groovy.json.JsonSlurper
+import groovy.json.JsonBuilder
+import java.net.HttpURLConnection
+
 def call() {
     return this
 }
