@@ -6,10 +6,6 @@ import groovy.json.JsonSlurper
 import groovy.json.JsonBuilder
 import java.net.HttpURLConnection
 
-// APP_ID = <APP_ID>
-// INSTALLATION_ID = <INSTALLATION_ID>
-// ORGANIZATION_NAME = <ORGANIZATION_NAME>
-
 def call() {
     return this
 }
@@ -24,11 +20,11 @@ def initializeGlobals(appId, installationId, organizationName) {
 }
 
 // Fetch the previous check run ID
-def getPreviousCheckNameRunID(repository, commitID, token, checkName) {
+def getPreviousCheckNameRunID(repository, commitID, token, checkName, globals) {
     echo "executing getPreviousCheckNameRunID function"
-    echo "ORGANIZATION_NAME: ${ORGANIZATION_NAME}, INSTALLATION_ID: ${INSTALLATION_ID}, APP_ID: ${APP_ID}"
+    echo "ORGANIZATION_NAME: ${globals.ORGANIZATION_NAME}, INSTALLATION_ID: ${globals.INSTALLATION_ID}, APP_ID: ${globals.APP_ID}"
     try {
-        def url = "https://api.github.com/repos/${ORGANIZATION_NAME}/${repository}/commits/${commitID}/check-runs"
+        def url = "https://api.github.com/repos/${globals.ORGANIZATION_NAME}/${repository}/commits/${commitID}/check-runs"
         def httpConn = new URL(url).openConnection() as HttpURLConnection
         httpConn.requestMethod = "GET"
         httpConn.setRequestProperty("Authorization", "token ${token}")
@@ -47,7 +43,7 @@ def getPreviousCheckNameRunID(repository, commitID, token, checkName) {
 }
 
 // Create or update a check run
-def setCheckName(repository, checkName, status, previousDay, requestMethod, accToken, commitID = null, check_run_id = null) {
+def setCheckName(repository, checkName, status, previousDay, requestMethod, accToken, commitID = null, check_run_id = null, globals) {
     echo "executing setCheckName function"
     try {
         def jsonBuilder = new JsonBuilder()
@@ -58,7 +54,7 @@ def setCheckName(repository, checkName, status, previousDay, requestMethod, accT
             completed_at: previousDay
         ]
         
-        def url = "https://api.github.com/repos/${ORGANIZATION_NAME}/${repository}/check-runs"
+        def url = "https://api.github.com/repos/${globals.ORGANIZATION_NAME}/${repository}/check-runs"
         if (requestMethod == "POST") {
             updateCheckRun["head_sha"] = commitID
         } else if (check_run_id) {
@@ -102,13 +98,13 @@ def accessTime() {
 }
 
 // Main function to build GitHub check
-def buildGithubCheck(repository, commitID, accToken, status, checkName) {
+def buildGithubCheck(repository, commitID, accToken, status, checkName, globals) {
     def currentTime = new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'")
     def checkNameRunId
     echo "executing buildGithubCheck function"
     try {
         echo "currentTime: ${accToken}, token: ${accToken}, repository: ${repository}, commitID: ${commitID}, status: ${status}, checkName: ${checkName}"
-        checkNameRunId = getPreviousCheckNameRunID(repository, commitID, accToken, checkName)
+        checkNameRunId = getPreviousCheckNameRunID(repository, commitID, accToken, checkName, globals)
         echo "buildGithubCheck try catch completed successfully"
     } catch (Exception e) {
         echo "token: ${accToken}, repository: ${repository}, commitID: ${commitID}, status: ${status}, checkName: ${checkName}"
@@ -118,11 +114,11 @@ def buildGithubCheck(repository, commitID, accToken, status, checkName) {
 
     def getStatusCode
     if (checkNameRunId) {
-        getStatusCode = setCheckName(repository, checkName, status, currentTime, "PATCH", accToken, commitID, checkNameRunId)
+        getStatusCode = setCheckName(repository, checkName, status, currentTime, "PATCH", accToken, commitID, checkNameRunId, globals)
         echo "getStatusCode: ${getStatusCode}"
     } else {
         echo "getStatusCode: ${getStatusCode}"
-        getStatusCode = setCheckName(repository, checkName, status, currentTime, "POST", accToken, commitID)
+        getStatusCode = setCheckName(repository, checkName, status, currentTime, "POST", accToken, commitID, globals)
     }
 
     if (!(getStatusCode in [200, 201])) {
