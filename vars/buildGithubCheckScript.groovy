@@ -1,10 +1,3 @@
-@Grab(group='io.jsonwebtoken', module='jjwt', version='0.4')
-import java.text.SimpleDateFormat
-import java.util.*
-import java.nio.charset.StandardCharsets
-import groovy.json.JsonSlurper
-import groovy.json.JsonBuilder
-import java.net.HttpURLConnection
 def call() {
     return this
 }
@@ -25,7 +18,8 @@ def getPreviousCheckNameRunID(repository, commitID, token, checkName, globals) {
         def httpConn = new URL(url).openConnection() as HttpURLConnection
         httpConn.requestMethod = "GET"
         httpConn.setRequestProperty("Authorization", "token ${token}")
-        httpConn.setRequestProperty("Accept", "application/vnd.github.antiope-preview+json")
+        httpConn.setRequestProperty("Accept", "application/vnd.github+json")
+        httpConn.setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
         
         def responseText = httpConn.inputStream.text
         def slurper = new JsonSlurper()
@@ -45,17 +39,28 @@ def setCheckName(repository, checkName, status, previousDay, requestMethod, accT
         def jsonBuilder = new JsonBuilder()
         def updateCheckRun = [
             name: checkName,
-            status: "in_progress",
-            conclusion: status,
-            completed_at: previousDay
+            status: status,
+            started_at: previousDay,
+            output: [
+                title: checkName,
+                summary: "",
+                text: ""
+            ]
         ]
-        
+
+        if (status == "completed") {
+            updateCheckRun["conclusion"] = "success" // or "failure" based on your logic
+            updateCheckRun["completed_at"] = previousDay
+        }
+
         def url = "https://api.github.com/repos/${globals.ORGANIZATION_NAME}/${repository}/check-runs"
-        echo "check runs id url: ${url}"
+        if (check_run_id) {
+            url += "/${check_run_id}"
+        }
+
         if (requestMethod == "POST") {
             updateCheckRun["head_sha"] = commitID
-        } else if (check_run_id) {
-            url += "/${check_run_id}"
+            updateCheckRun["external_id"] = "42" // Replace with a unique identifier if needed
         }
 
         jsonBuilder(updateCheckRun)
@@ -65,13 +70,15 @@ def setCheckName(repository, checkName, status, previousDay, requestMethod, accT
         httpConn.requestMethod = requestMethod
         httpConn.doOutput = true
         httpConn.setRequestProperty("Authorization", "token ${accToken}")
-        httpConn.setRequestProperty("Accept", "application/vnd.github.antiope-preview+json")
+        httpConn.setRequestProperty("Accept", "application/vnd.github+json")
+        httpConn.setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
         httpConn.setRequestProperty("Content-Type", "application/json")
-        
+
         httpConn.outputStream.withWriter("UTF-8") { it.write(payload) }
         def responseCode = httpConn.responseCode
         def responseText = httpConn.inputStream.text
         httpConn.disconnect()
+
         echo "setCheckName completed successfully, responseCode = ${responseCode}, responseText = ${responseText}"
         return responseCode
     } catch (Exception e) {
