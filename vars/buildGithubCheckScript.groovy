@@ -24,6 +24,7 @@ def initializeGlobals(appId, installationId, organizationName) {
 }
 // Fetch the previous check run ID
 def getPreviousCheckNameRunID(repository, commitID, token, checkName) {
+    echo "executing getPreviousCheckNameRunID function"
     try {
         def url = "https://api.github.com/repos/${ORGANIZATION_NAME}/${repository}/commits/${commitID}/check-runs"
         def httpConn = new URL(url).openConnection() as HttpURLConnection
@@ -36,7 +37,7 @@ def getPreviousCheckNameRunID(repository, commitID, token, checkName) {
         def resultMap = slurper.parseText(responseText)
         def checkRunId = resultMap.check_runs.find { it.name == checkName }?.id
         httpConn.disconnect()
-        
+        echo "getPreviousCheckNameRunID completed successfully, checkRunId = ${checkRunId}"
         return checkRunId
     } catch (Exception e) {
         error "Failed to retrieve the check ID: ${e.message}"
@@ -45,6 +46,7 @@ def getPreviousCheckNameRunID(repository, commitID, token, checkName) {
 
 // Create or update a check run
 def setCheckName(repository, checkName, status, previousDay, requestMethod, accToken, commitID = null, check_run_id = null) {
+    echo "executing setCheckName function"
     try {
         def jsonBuilder = new JsonBuilder()
         def updateCheckRun = [
@@ -74,7 +76,7 @@ def setCheckName(repository, checkName, status, previousDay, requestMethod, accT
         httpConn.outputStream.withWriter("UTF-8") { it.write(payload) }
         def responseCode = httpConn.responseCode
         httpConn.disconnect()
-        
+        echo "setCheckName completed successfully, responseCode = ${responseCode}"
         return responseCode
     } catch (Exception e) {
         echo "Exception: ${e.message}"
@@ -84,10 +86,12 @@ def setCheckName(repository, checkName, status, previousDay, requestMethod, accT
 
 // Get current and expiration times
 def accessTime() {
+    echo "executing accessTime function"
     try {
         def now = new Date()
         def expirationTime = new Date(now.time + 50000)
         def iat = new Date(System.currentTimeMillis() + 1000)
+        echo "accessTime completed successfully"
         return [iat: iat, expirationTime: expirationTime]
     } catch (Exception e) {
         echo "Exception: ${e.message}"
@@ -99,11 +103,13 @@ def accessTime() {
 def buildGithubCheck(repository, commitID, accToken, status, checkName) {
     def currentTime = new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'")
     def checkNameRunId
-    token = accToken
-
+    echo "executing buildGithubCheck function"
     try {
-        checkNameRunId = getPreviousCheckNameRunID(repository, commitID, token, checkName)
+        echo "currentTime: ${accToken}, token: ${accToken}, repository: ${repository}, commitID: ${commitID}, status: ${status}, checkName: ${checkName}"
+        checkNameRunId = getPreviousCheckNameRunID(repository, commitID, accToken, checkName)
+        echo "buildGithubCheck try catch completed successfully"
     } catch (Exception e) {
+        echo "token: ${accToken}, repository: ${repository}, commitID: ${commitID}, status: ${status}, checkName: ${checkName}"
         echo "Exception: ${e.message}"
         echo "Check name does not exist"
     }
@@ -111,7 +117,9 @@ def buildGithubCheck(repository, commitID, accToken, status, checkName) {
     def getStatusCode
     if (checkNameRunId) {
         getStatusCode = setCheckName(repository, checkName, status, currentTime, "PATCH", accToken, commitID, checkNameRunId)
+        echo "getStatusCode: ${getStatusCode}"
     } else {
+        echo "getStatusCode: ${getStatusCode}"
         getStatusCode = setCheckName(repository, checkName, status, currentTime, "POST", accToken, commitID)
     }
 
