@@ -55,6 +55,7 @@ def setCheckName(repository, checkName, status, previousDay, requestMethod, accT
         ]
         
         def url = "https://api.github.com/repos/${globals.ORGANIZATION_NAME}/${repository}/check-runs"
+        echo "check runs id url: ${url}"
         if (requestMethod == "POST") {
             updateCheckRun["head_sha"] = commitID
         } else if (check_run_id) {
