@@ -1,11 +1,7 @@
-@Grab(group='org.bouncycastle', module='bcprov-jdk15on', version='1.70')
-import org.bouncycastle.asn1.pkcs.RSAPrivateKey
-
-import java.net.HttpURLConnection
-import java.net.URL
-import groovy.json.JsonSlurper
-import groovy.json.JsonBuilder
+@Grab(group='io.jsonwebtoken', module='jjwt', version='0.4')
+import sun.net.www.protocol.https.HttpsURLConnectionImpl
 import java.text.SimpleDateFormat
+import java.lang.reflect.*
 import java.util.*
 import java.nio.charset.StandardCharsets
 import java.io.*
@@ -18,8 +14,12 @@ import java.security.spec.*
 import static io.jsonwebtoken.SignatureAlgorithm.RS256
 import java.util.Base64.Decoder
 import org.apache.commons.codec.binary.Base64
+import org.codehaus.groovy.runtime.GStringImpl
 
-// Entry point for the pipeline step
+// APP_ID = <APP_ID>
+// INSTALLATION_ID = <INSTALLATION_ID>
+// ORGANIZATION_NAME = <ORGANIZATION_NAME>
+
 def call() {
     return this
 }
@@ -33,63 +33,103 @@ def initializeGlobals(appId, installationId, organizationName) {
     ]
 }
 
-// Custom HTTP request method using standard HttpURLConnection
-def setRequestMethod(HttpURLConnection connection, String requestMethod) {
+// Custom HTTP request method
+def setRequestMethod( HttpURLConnection c,  String requestMethod) {
     try {
-        connection.setRequestMethod(requestMethod)
-    } catch (Exception e) {
-        throw new RuntimeException("Failed to set request method: ${e.message}", e)
-    }
-}
-
-// Method to make an HTTP request
-def makeHttpRequest(String url, String method, String token, String body = null) {
-    try {
-        def httpConn = new URL(url).openConnection() as HttpURLConnection
-        httpConn.setDoOutput(true)
-        httpConn.setRequestMethod(method)
-        httpConn.setRequestProperty('Authorization', "token ${token}")
-        httpConn.setRequestProperty('Accept', 'application/vnd.github.antiope-preview+json')
-        httpConn.setRequestProperty('Content-Type', 'application/json')
-
-        if (body) {
-            httpConn.getOutputStream().write(body.getBytes("UTF-8"))
+        final Object target;
+        if (c instanceof HttpsURLConnectionImpl) {
+            final Field delegate = HttpsURLConnectionImpl.class.getDeclaredField("delegate");
+            delegate.setAccessible(true);
+            target = delegate.get(c);
+        } else {
+            target = c;
         }
-
-        return httpConn
-    } catch (Exception e) {
-        throw new RuntimeException("Failed to make HTTP request: ${e.message}", e)
+        final Field f = HttpURLConnection.class.getDeclaredField("method");
+        f.setAccessible(true);
+        f.set(target, requestMethod);
+    } catch (IllegalAccessException | NoSuchFieldException ex) {
+        throw new AssertionError(ex);
     }
 }
 
-// Method to get the previous check run ID
 def getPreviousCheckNameRunID(repository, commitID, token, checkName) {
     try {
-        def url = "https://api.github.com/repos/${ORGANIZATION_NAME}/${repository}/commits/${commitID}/check-runs"
-        def httpConn = makeHttpRequest(url, "GET", token)
-        def checkRuns = httpConn.getInputStream().getText()
+        def httpConn = new URL("https://api.github.com/repos/${ORGANIZATION_NAME}/${repository}/commits/${commitID}/check-runs").openConnection();
+        httpConn.setDoOutput(true)
+        httpConn.setRequestProperty( 'Authorization', "token ${token}" )
+        httpConn.setRequestProperty( 'Accept', 'application/vnd.github.antiope-preview+json' )
+        checkRuns = httpConn.getInputStream().getText();
         def slurperCheckRun = new JsonSlurper()
         def resultMapCheckRun = slurperCheckRun.parseText(checkRuns)
-        def checkRun = resultMapCheckRun.check_runs.find { it.name == checkName }
-        return checkRun?.id
-    } catch (Exception e) {
-        error "Failed to retrieve the check id: ${e.message}"
-    }
+        def check_run_id = resultMapCheckRun.check_runs
+                      .find { it.name == checkName }
+                      .id
+        return check_run_id
+    } catch(Exception e){
+        error 'Failed to retrieve the check id'
+    }           
 }
 
-// Method to set a check run status
-def setCheckName(repository, checkName, status, previousDay, requestMethod, commitID = null, checkRunId = null) {
+def setCheckName(repository, checkName, status, previousDay, requestMethod, commitID=null, check_run_id=null) {
     try {
-        def jsonCheckRun = new JsonBuilder()
-        def updateCheckRun = [
-            name: checkName,
-            status: "in_progress",
-            conclusion: status,
-            completed_at: previousDay
-        ]
-
+        def jsonCheckRun = new groovy.json.JsonBuilder()
+        updateCheckRun = ["name":"${checkName}", "status": "in_progress", "conclusion":"${status}", "completed_at": "${previousDay}"]
         def url = "https://api.github.com/repos/${ORGANIZATION_NAME}/${repository}/check-runs"
+
         if (requestMethod == "POST") {
-            updateCheckRun["head_sha"] = commitID
+            updateCheckRun["head_sha"] = "${commitID}"
         } else {
-            url += "/${checkRunId
+            url += "/${check_run_id}"
+        }
+
+        // Cast map to json
+        jsonCheckRun updateCheckRun
+
+        def httpConn = new URL(url).openConnection();
+        setRequestMethod(httpConn, requestMethod);
+        httpConn.setDoOutput(true)
+        httpConn.setRequestProperty( 'Authorization', "token ${token}" )
+        httpConn.setRequestProperty( 'Accept', 'application/vnd.github.antiope-preview+json' )
+        httpConn.getOutputStream().write(jsonCheckRun.toString().getBytes("UTF-8"));
+        return httpConn.getResponseCode();
+    } catch(Exception e){
+        echo "Exception: ${e}"
+        error "Failed to create a check run"
+    }   
+}
+
+def accessTime() {
+    try {
+        Date date = new Date();
+        long t = date.getTime();
+        Date expirationTime = new Date(t + 50000l);
+        Date iat = new Date(System.currentTimeMillis() + 1000)
+        return ["iat": iat, "expirationTime": expirationTime]
+    } catch(Exception e){
+        echo "Exception: ${e}"
+        error "Generated current time failed"
+    }    
+}
+
+def buildGithubCheck(repository, commitID, accToken, status, checkName) {
+    def currentTime = new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'")
+    def checkName_run_id
+
+    token = accToken
+  
+    try {
+        checkName_run_id = getPreviousCheckNameRunID(repository, commitID, token, checkName)
+    } catch(Exception e) {
+        echo "Exception: ${e}"
+        echo "Check name does not exist"
+    }
+
+    if (checkName_run_id) {
+        getStatusCode = setCheckName(repository, checkName, status, currentTime, "PATCH", commitID, checkName_run_id)
+    } else {
+        getStatusCode = setCheckName(repository, checkName, status, previousDay, "POST", commitID)
+    }
+    if (!(getStatusCode in [200,201])) {
+        error "Failed to create a check run, status code: ${getStatusCode}"
+    }
+}
