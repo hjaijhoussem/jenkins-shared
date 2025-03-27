@@ -1,4 +1,5 @@
 def sendPipelineData(String hostAndPort, String junitXmlPath, String coverageXmlPath, String projectName, String buildNumber) {
+
     def jobName = env.JOB_NAME ?: 'unknown-job'
     def buildStatus = currentBuild.currentResult ?: 'UNKNOWN'
     
