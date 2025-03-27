@@ -1,8 +1,18 @@
-def call(String hostAndPort, String junitXmlPath, String coverageXmlPath, String projectName, int buildNumber) {
+def call(String hostAndPort, String junitXmlPath, String coverageXmlPath, String projectName, String buildNumber) {
 
     def jobName = env.JOB_NAME ?: 'unknown-job'
     def buildStatus = currentBuild.currentResult ?: 'UNKNOWN'
     
+
+    def buildNumberInt
+    try {
+        buildNumberInt = buildNumber.toInteger()
+    } catch (Exception e) {
+        echo "ERROR: Failed to convert build number '${buildNumber}' to integer: ${e.message}"
+        echo "Using original string value instead."
+        buildNumberInt = buildNumber
+    }
+
     // Check if files exist before attempting to send them
     def junitFileExists = fileExists(junitXmlPath)
     def coverageFileExists = fileExists(coverageXmlPath)
@@ -28,7 +38,7 @@ def call(String hostAndPort, String junitXmlPath, String coverageXmlPath, String
             curl -v --connect-timeout 30 -X POST \\
                 "http://${hostAndPort}/api/pipeline" \\
                 -H "api-version: 1.0.0" \\
-                -F "build_nbr=${buildNumber}" \\
+                -F "build_nbr=${buildNumberInt}" \\
                 -F "project_name=${projectName}" \\
                 -F "name=${jobName}" \\
                 -F "status=${buildStatus}" \\
