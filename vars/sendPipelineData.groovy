@@ -1,4 +1,4 @@
-def sendPipelineData(String hostAndPort, String junitXmlPath, String coverageXmlPath) {
+def sendPipelineData(String hostAndPort, String junitXmlPath, String coverageXmlPath, String projectName, String buildNumber) {
     def jobName = env.JOB_NAME ?: 'unknown-job'
     def buildStatus = currentBuild.currentResult ?: 'UNKNOWN'
     
@@ -27,6 +27,8 @@ def sendPipelineData(String hostAndPort, String junitXmlPath, String coverageXml
             curl -v --connect-timeout 30 -X POST \\
                 "http://${hostAndPort}/api/pipeline" \\
                 -H "api-version: 1.0.0" \\
+                -F "build_nbr=${buildNumber}" \\
+                -F "project_name=${projectName}" \\
                 -F "name=${jobName}" \\
                 -F "status=${buildStatus}" \\
                 -F "junit_xml=@${junitXmlPath}" \\
