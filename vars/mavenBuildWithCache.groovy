@@ -17,7 +17,7 @@ def call(Map config = [:]) {
                     )
                 ]
             ) {
-                sh sh "mvn clean install -DskipTests -s $MAVEN_SETTINGS"
+                sh "mvn clean install -DskipTests -s $MAVEN_SETTINGS"
             }
         }
     }
