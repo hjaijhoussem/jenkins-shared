@@ -1,7 +1,7 @@
 def call(Map config = [:]) {
     // Default parameter values
     def dirPath = config.dirPath ?: '.'
-    def stopBuild = config.stopBuild ?: true
+    def stopBuild = config.stopBuild ?: false
     def nvdApiKey = config.nvdApiKey ?: 'NVD_API_KEY'
     def failOnCVSS = config.failOnCVSS ?: 11
     def scanPath = config.scanPath ?: 'target/**/*.jar'
