@@ -12,7 +12,7 @@ def call(Map config = [:]) {
 
     dir(path: dirPath) {
         configFileProvider([configFile(fileId: mavenSettingsId, variable: 'MAVEN_SETTINGS')]) {
-            sh "mvn deploy -DaltDeploymentRepository=${deployRepo}::default::http://${nexusUrl}/repository/hippo-snapshots/ -s $MAVEN_SETTINGS"
+            sh "mvn deploy -DaltDeploymentRepository=${deployRepo}::default::http://${nexusUrl}/repository/${deployRepo}/ -s $MAVEN_SETTINGS"
         }
     }
 }
