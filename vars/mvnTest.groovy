@@ -4,6 +4,11 @@ def call(Map config = [:]) {
     def mavenSettingsId = config.mavenSettingsId ?: 'mvn-nexus-jar'
     def skipSurefire = config.skipSurefire ?: false
     
+
+    echo "Directory Path: ${dirPath}"
+    echo "Maven Settings ID: ${mavenSettingsId}"
+    echo "Skip Surefire: ${skipSurefire}"
+    
     dir(path: dirPath) {
         configFileProvider([configFile(fileId: mavenSettingsId, variable: 'MAVEN_SETTINGS')]) {
             // Run tests

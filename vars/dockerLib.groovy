@@ -7,6 +7,9 @@ def loginAndBuild(Map config = [:]) {
     def dockerImageName = config.dockerImageName // e.g. 'my-docker-image'
     def dockerImageVersion = config.dockerImageVersion ?: 'latest'
     
+    echo "Directory Path: ${dirPath}"
+    echo "Image Tag: ${dockerImageName}:${dockerImageVersion}"
+
     dir(path: dirPath) {    
         withCredentials([usernamePassword(credentialsId: credentialsId, usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
             sh('echo ${PASSWORD} | docker login ${NEXUS_URL} -u ${USERNAME} --password-stdin')

@@ -13,6 +13,10 @@ def call(Map config = [:]) {
     def failedTotalLow = config.failedTotalLow ?: 90
     def failedTotalMedium = config.failedTotalMedium ?: 8
     
+
+    echo "Directory Path: ${dirPath}"
+    echo "Stop Build: ${stopBuild}"
+
     withCredentials([string(credentialsId: nvdApiKey, variable: 'NVD_API_KEY')]) {
         dir(path: dirPath) {
             dependencyCheck additionalArguments: """

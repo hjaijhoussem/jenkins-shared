@@ -9,6 +9,10 @@ def call(Map config = [:]) {
     def sourcesPath = config.sourcesPath ?: 'src/main/java'
     def binariesPath = config.binariesPath ?: 'target/classes'
 
+    echo "Directory Path: ${dirPath}"
+    echo "Maven Settings ID: ${mavenSettingsId}"
+    echo "Sonar Instance: ${sonarInstance}"
+    
     dir(path: dirPath){
         configFileProvider([configFile(fileId: mavenSettingsId, variable: 'MAVEN_SETTINGS')]) {
             withSonarQubeEnv(sonarInstance){

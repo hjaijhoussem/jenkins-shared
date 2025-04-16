@@ -5,6 +5,9 @@ def call(Map config = [:]) {
     def maxCacheSize = config.maxCacheSize ?: 1000
     def cachePath = config.cachePath ?: '/root/.m2/repository'
     
+    echo "Directory Path: ${dirPath}"
+    echo "Maven Settings ID: ${mavenSettingsId}"
+
     dir(path: dirPath) {
         configFileProvider([configFile(fileId: mavenSettingsId, variable: 'MAVEN_SETTINGS')]) {
             cache(
