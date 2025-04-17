@@ -1,3 +1,13 @@
+/***
+Usage:
+  trivyScan.vulnerability(
+    imageName: 'my-app:latest',
+    severity: 'HIGH',
+    exitCode: 1
+  )
+  trivyScan.reportsConverter()
+***/
+
 def vulnerability(Map config) {
     // Load the script
     loadScript('trivy.sh')
@@ -25,14 +35,3 @@ def reportsConverter() {
         --input trivy-image-CRITICAL-results.json --output trivy-CRITICAL-report.html
     '''
 }
-
-/***
-Usage:
-  trivyScan.vulnerability(
-    imageName: 'my-app:latest',
-    severity: 'HIGH',
-    exitCode: 1
-  )
-  trivyScan.reportsConverter()
-
-***/
