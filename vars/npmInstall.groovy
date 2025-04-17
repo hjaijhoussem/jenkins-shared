@@ -1,4 +1,4 @@
-def call (){
+def call(){
   cache(maxCacheSize: 550, caches: [
       arbitraryFileCache(
           cacheName: 'npm-dependency-cache',
