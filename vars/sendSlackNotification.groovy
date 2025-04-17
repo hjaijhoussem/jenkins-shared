@@ -1,4 +1,4 @@
-def call(String buildStatus = 'STARTED') {
+def call(String buildStatus = 'STARTED', String channel) {
     // Default to SUCCESS if no status provided
     buildStatus = buildStatus ?: 'SUCCESS'
 
@@ -14,6 +14,7 @@ def call(String buildStatus = 'STARTED') {
     
     // Send the Slack notification
     slackSend(
+        channel: channel,
         color: color,
         message: "Build ${buildStatus}: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)"
     )
