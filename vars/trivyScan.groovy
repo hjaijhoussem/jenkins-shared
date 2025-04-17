@@ -28,11 +28,11 @@ def reportsConverter() {
 
 /***
 Usage:
-- Call method:
-  trivyScan(
+  trivyScan.vulnerability(
     imageName: 'my-app:latest',
     severity: 'HIGH',
     exitCode: 1
   )
+  trivyScan.reportsConverter()
 
 ***/
