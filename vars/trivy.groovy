@@ -5,6 +5,10 @@ def scan(Map config = [:]) {
     def dockerImageName = config.dockerImageName // e.g. 'my-docker-image'
     def dockerImageVersion = config.dockerImageVersion
 
+    echo "Nexus URL: ${nexusUrl}"
+    echo "Nexus Repository: ${nexusRepository}"
+    echo "Docker Image tag: ${dockerImageName}:${dockerImageVersion}"
+    
     def trivyHome = tool name: 'trivy-0.58.1', type: 'com.cloudbees.jenkins.plugins.customtools.CustomTool'
 
     sh 'curl -o html.tpl https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl'
