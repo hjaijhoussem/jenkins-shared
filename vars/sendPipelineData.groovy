@@ -36,7 +36,7 @@ def call(String hostAndPort, String junitXmlPath, String coverageXmlPath, String
         // Construct the full curl command at once
         def curlCmd = """
             curl -v --connect-timeout 30 -X POST \\
-                "http://${hostAndPort}/api/pipeline" \\
+                "${hostAndPort}/api/pipeline" \\
                 -H "api-version: 1.0.0" \\
                 -F "build_nbr=${buildNumberInt}" \\
                 -F "project_name=${projectName}" \\
